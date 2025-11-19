@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Kivu - B2B Marketplace</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        kivu: {
+                            teal: '#00695C',    // Primary
+                            dark: '#004D40',    // Header
+                            bg: '#F5F7FA',      // Background
+                            orange: '#FF6600',  // Action
+                            gold: '#FFD700',    // Verified
+                            danger: '#DC2626'   // Delete
+                        }
+                    },
+                    fontSize: {
+                        'xxs': '0.65rem',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .fade-in { animation: fadeIn 0.3s ease-out; }
+        .slide-up { animation: slideUp 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+        
+        /* Chat Bubbles */
+        .chat-bubble { max-width: 80%; padding: 10px; border-radius: 12px; font-size: 13px; margin-bottom: 8px; }
+        .chat-me { background-color: #DCF8C6; align-self: flex-end; border-bottom-right-radius: 2px; margin-left: auto; }
+        .chat-agent { background-color: white; align-self: flex-start; border-bottom-left-radius: 2px; border: 1px solid #eee; }
+        
+        .progress-bar { transition: width 1s ease-in-out; }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans text-gray-800 h-screen w-screen overflow-hidden flex justify-center">
+
+    <div class="w-full max-w-md h-full bg-kivu-bg flex flex-col relative shadow-2xl overflow-hidden">
+        
+        <!-- ================= HEADER ================= -->
+        <header class="bg-kivu-dark text-white pt-3 pb-2 shrink-0 z-20 shadow-md">
+            <div class="px-3 flex items-center gap-3 mb-2">
+                <h1 class="font-bold text-lg tracking-tighter italic">Kivu</h1>
+                
+                <!-- Search -->
+                <div class="flex-1 relative">
+                    <input type="text" id="search-input" oninput="renderProducts(this.value)"
+                        class="block w-full pl-8 pr-8 py-1.5 rounded-full text-sm text-gray-900 bg-white border-0 focus:ring-2 focus:ring-kivu-orange placeholder-gray-500" 
+                        data-i18n-placeholder="search_ph">
+                    <i class="fas fa-search absolute left-2.5 top-2 text-gray-400 text-xs"></i>
+                    <i class="fas fa-camera absolute right-2.5 top-2 text-gray-500 text-sm"></i>
+                </div>
+
+                <!-- Settings Toggle -->
+                <button onclick="toggleSettings()" class="p-1 relative">
+                    <i class="fas fa-cog text-xl"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- ================= MAIN CONTENT ================= -->
+        <main class="flex-1 overflow-y-auto no-scrollbar relative" id="main-container">
+            
+            <!-- SETTINGS MODAL -->
+            <div id="settings-modal" class="hidden absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 fade-in">
+                <div class="bg-white rounded-xl shadow-2xl w-full max-w-xs p-5">
+                    <h2 class="text-lg font-bold mb-4 text-kivu-teal" data-i18n="settings_title">Settings</h2>
+                    
+                    <div class="mb-4">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-2" data-i18n="lbl_lang">Language</label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button onclick="setLang('en')" class="lang-btn py-2 rounded border text-xs font-bold hover:bg-gray-50" id="btn-lang-en">English</button>
+                            <button onclick="setLang('sw')" class="lang-btn py-2 rounded border text-xs font-bold hover:bg-gray-50" id="btn-lang-sw">Swahili</button>
+                            <button onclick="setLang('rw')" class="lang-btn py-2 rounded border text-xs font-bold hover:bg-gray-50" id="btn-lang-rw">Kinyarwanda</button>
+                        </div>
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-2" data-i18n="lbl_curr">Currency</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="setCurr('USD')" class="curr-btn py-2 rounded border text-xs font-bold hover:bg-gray-50" id="btn-curr-USD">USD ($)</button>
+                            <button onclick="setCurr('RWF')" class="curr-btn py-2 rounded border text-xs font-bold hover:bg-gray-50" id="btn-curr-RWF">RWF (Frw)</button>
+                        </div>
+                    </div>
+
+                    <button onclick="toggleSettings()" class="w-full bg-kivu-teal text-white py-3 rounded-lg font-bold shadow-lg" data-i18n="btn_close">Close</button>
+                </div>
+            </div>
+
+            <!-- ALL CATEGORIES MODAL -->
+            <div id="all-cats-modal" class="hidden absolute inset-0 z-40 bg-white flex flex-col slide-up">
+                <div class="bg-kivu-dark text-white p-4 flex items-center gap-3 shadow-md shrink-0">
+                    <button onclick="toggleAllCats()"><i class="fas fa-arrow-left text-lg"></i></button>
+                    <h2 class="font-bold text-lg" data-i18n="cat_all_title">All Categories</h2>
+                </div>
+                <div class="flex-1 overflow-y-auto p-2 bg-gray-50">
+                    <div class="grid grid-cols-2 gap-2" id="full-cat-grid"></div>
+                </div>
+            </div>
+
+            <!-- PRODUCT DETAIL MODAL -->
+            <div id="product-detail-modal" class="hidden absolute inset-0 z-40 bg-white flex flex-col slide-up overflow-y-auto pb-24"></div>
+
+            <!-- SUB-PAGE: FAVORITES -->
+            <div id="subpage-favorites" class="hidden absolute inset-0 z-30 bg-gray-50 flex flex-col slide-up">
+                <div class="bg-white p-4 shadow-sm flex items-center gap-3">
+                    <button onclick="closeSubPage('subpage-favorites')"><i class="fas fa-arrow-left text-lg text-gray-600"></i></button>
+                    <h2 class="font-bold text-lg" data-i18n="me_fav">Favorites</h2>
+                </div>
+                <div class="flex-1 flex flex-col items-center justify-center text-gray-400">
+                    <i class="far fa-heart text-4xl mb-3"></i>
+                    <p data-i18n="fav_empty">No favorite products yet.</p>
+                </div>
+            </div>
+
+            <!-- SUB-PAGE: ADDRESSES -->
+            <div id="subpage-address" class="hidden absolute inset-0 z-30 bg-gray-50 flex flex-col slide-up">
+                <div class="bg-white p-4 shadow-sm flex items-center gap-3">
+                    <button onclick="closeSubPage('subpage-address')"><i class="fas fa-arrow-left text-lg text-gray-600"></i></button>
+                    <h2 class="font-bold text-lg" data-i18n="me_addr">Addresses</h2>
+                </div>
+                <div class="p-4">
+                    <div class="bg-white p-4 rounded shadow-sm mb-4">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-2" data-i18n="addr_label">Delivery Address</label>
+                        <textarea id="addr-text" class="w-full border border-gray-200 rounded p-3 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-kivu-teal" rows="3" placeholder="Street, City, Country..."></textarea>
+                        <button onclick="saveAddress()" class="w-full bg-kivu-teal text-white font-bold py-3 rounded text-sm shadow" data-i18n="btn_save">Save Address</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAGE 1: MARKET (HOME) -->
+            <div id="page-home" class="min-h-full pb-24">
+                <!-- Horizontal Categories -->
+                <div class="bg-white py-3 px-2 mb-2 overflow-x-auto no-scrollbar flex gap-4 border-b border-gray-200 shadow-sm sticky top-0 z-10" id="quick-cat-bar"></div>
+
+                <!-- Filter Indicator -->
+                <div id="filter-indicator" class="hidden px-3 py-2 mb-2 bg-blue-50 border-l-4 border-blue-500 flex justify-between items-center">
+                    <span class="text-xs font-bold text-blue-700" id="filter-name">Filtering</span>
+                    <button onclick="resetFilter()" class="text-blue-400 hover:text-blue-700"><i class="fas fa-times"></i></button>
+                </div>
+
+                <!-- Product Feed -->
+                <div id="product-feed" class="flex flex-col gap-3 px-2"></div>
+            </div>
+
+            <!-- PAGE 2: MY POOLS -->
+            <div id="page-pools" class="hidden h-full flex flex-col bg-gray-50">
+                <div class="p-4 bg-white shadow-sm border-b border-gray-200 sticky top-0 z-10">
+                    <h2 class="font-bold text-lg text-kivu-teal"><i class="fas fa-users mr-2"></i><span data-i18n="pool_title">My Active Pools</span></h2>
+                </div>
+                <div id="pool-list" class="flex-1 p-3 overflow-y-auto pb-20"></div>
+            </div>
+
+            <!-- PAGE 3: CART -->
+            <div id="page-cart" class="hidden h-full flex flex-col bg-gray-50">
+                <div class="p-4 bg-white shadow-sm border-b border-gray-200 sticky top-0 z-10">
+                    <h2 class="font-bold text-lg text-kivu-orange"><i class="fas fa-shopping-cart mr-2"></i><span data-i18n="cart_title">Shopping Cart</span></h2>
+                </div>
+                <div id="cart-items" class="flex-1 p-3 overflow-y-auto pb-32"></div>
+                <div class="p-4 bg-white border-t border-gray-200 absolute bottom-0 w-full pb-24 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
+                    <div class="flex justify-between mb-3 text-sm">
+                        <span data-i18n="cart_total">Total:</span>
+                        <span class="font-bold text-xl text-kivu-orange" id="cart-total-price">0</span>
+                    </div>
+                    <button class="w-full bg-kivu-orange text-white font-bold py-3 rounded-full shadow-lg active:scale-95 transition" data-i18n="btn_checkout">Checkout Now</button>
+                </div>
+            </div>
+
+            <!-- PAGE 4: SUPPORT -->
+            <div id="page-support" class="hidden h-full flex flex-col bg-gray-100">
+                <div class="bg-kivu-teal text-white p-4 shadow flex items-center gap-3 shrink-0">
+                    <div class="relative">
+                        <div class="w-10 h-10 rounded-full bg-white text-kivu-teal flex items-center justify-center border-2 border-green-400"><i class="fas fa-headset text-lg"></i></div>
+                        <div class="absolute bottom-0 right-0 w-3 h-3 bg-green-400 rounded-full border border-white"></div>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-sm" data-i18n="chat_header">Support Agent</h3>
+                        <p class="text-xs opacity-80" data-i18n="chat_sub">Online | Replies in 2m</p>
+                    </div>
+                </div>
+                <div id="chat-messages" class="flex-1 overflow-y-auto p-4 flex flex-col">
+                    <div class="chat-bubble chat-agent shadow-sm" data-i18n="chat_welcome">Hello! 👋 How can I help you today?</div>
+                </div>
+                <div class="p-3 bg-white border-t border-gray-200 flex gap-2 shrink-0 pb-20">
+                    <input type="text" id="chat-input" class="flex-1 bg-gray-100 rounded-full px-4 text-sm focus:outline-none" placeholder="...">
+                    <button onclick="sendChat()" class="bg-kivu-teal text-white w-10 h-10 rounded-full flex items-center justify-center shadow"><i class="fas fa-paper-plane text-xs"></i></button>
+                </div>
+            </div>
+
+            <!-- PAGE 5: ME -->
+            <div id="page-me" class="hidden h-full bg-gray-100 overflow-y-auto pb-24">
+                <div class="bg-gradient-to-r from-kivu-dark to-kivu-teal text-white p-6 pt-10 pb-16">
+                    <div class="flex items-center gap-4 mb-4">
+                        <div class="w-16 h-16 rounded-full bg-gray-200 border-2 border-white overflow-hidden">
+                            <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&q=80" class="w-full h-full object-cover">
+                        </div>
+                        <div>
+                            <h2 class="font-bold text-xl">Global Buyer Ltd</h2>
+                            <div class="flex items-center gap-2 mt-1">
+                                <span class="bg-kivu-gold text-black text-[10px] px-2 py-0.5 rounded font-bold" data-i18n="me_verified">VERIFIED BUYER</span>
+                                <span class="text-xs opacity-80">ID: KIV-9928</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mx-4 -mt-8 bg-white rounded-lg shadow-md p-4 relative z-10">
+                    <div class="flex justify-between items-center mb-3 border-b border-gray-100 pb-2">
+                        <h3 class="font-bold text-sm" data-i18n="me_orders">My Orders</h3>
+                        <span class="text-xs text-gray-400">></span>
+                    </div>
+                    <div class="flex justify-between text-center">
+                        <div class="flex flex-col items-center gap-1"><i class="fas fa-wallet text-gray-500 text-lg"></i><span class="text-xs text-gray-600" data-i18n="me_unpaid">Unpaid</span></div>
+                        <div class="flex flex-col items-center gap-1"><i class="fas fa-box-open text-gray-500 text-lg"></i><span class="text-xs text-gray-600" data-i18n="me_process">Processing</span></div>
+                        <div class="flex flex-col items-center gap-1"><i class="fas fa-truck text-gray-500 text-lg"></i><span class="text-xs text-gray-600" data-i18n="me_ship">Shipped</span></div>
+                    </div>
+                </div>
+                <div class="m-4 flex flex-col gap-3">
+                    <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                        <div onclick="openSubPage('subpage-favorites')" class="p-4 border-b border-gray-100 flex justify-between items-center active:bg-gray-50 cursor-pointer">
+                            <span class="text-sm font-medium" data-i18n="me_fav">Favorites</span><i class="fas fa-chevron-right text-gray-300 text-xs"></i>
+                        </div>
+                        <div onclick="openSubPage('subpage-address')" class="p-4 border-b border-gray-100 flex justify-between items-center active:bg-gray-50 cursor-pointer">
+                            <span class="text-sm font-medium" data-i18n="me_addr">Addresses</span><i class="fas fa-chevron-right text-gray-300 text-xs"></i>
+                        </div>
+                    </div>
+                    <button class="bg-white text-red-500 font-bold py-4 rounded-lg shadow-sm text-sm mb-4" data-i18n="me_logout">Log Out</button>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- ================= BOTTOM NAV ================= -->
+        <nav class="bg-white border-t border-gray-200 flex justify-between items-end px-4 py-2 shrink-0 z-30 pb-safe shadow-[0_-4px_10px_rgba(0,0,0,0.05)] h-[60px]">
+            <div onclick="navTo('home')" id="nav-home" class="text-kivu-teal flex-1 flex flex-col items-center justify-center cursor-pointer transition h-full">
+                <i class="fas fa-store text-xl mb-1"></i><span class="text-[9px] font-bold" data-i18n="nav_market">Market</span>
+            </div>
+            <div onclick="navTo('pools')" id="nav-pools" class="text-gray-400 flex-1 flex flex-col items-center justify-center cursor-pointer transition h-full relative">
+                <i class="fas fa-users text-xl mb-1"></i><span class="text-[9px] font-bold" data-i18n="nav_pools">Pools</span>
+                <span id="pool-badge" class="hidden absolute top-0 right-4 bg-kivu-orange text-white text-[9px] font-bold px-1 rounded-full">0</span>
+            </div>
+            <div onclick="navTo('cart')" id="nav-cart" class="text-gray-400 flex-1 flex flex-col items-center justify-center cursor-pointer transition h-full relative">
+                <div class="bg-white rounded-full -mt-8 p-1.5 shadow-lg border border-gray-100">
+                    <div class="bg-kivu-orange text-white w-10 h-10 rounded-full flex items-center justify-center text-lg"><i class="fas fa-shopping-cart"></i></div>
+                </div>
+                <span class="text-[9px] font-bold mt-1" data-i18n="nav_cart">Cart</span>
+                <span id="cart-count" class="hidden absolute top-0 right-4 bg-red-600 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center border border-white">0</span>
+            </div>
+            <div onclick="navTo('support')" id="nav-support" class="text-gray-400 flex-1 flex flex-col items-center justify-center cursor-pointer transition h-full">
+                <i class="fas fa-headset text-xl mb-1"></i><span class="text-[9px] font-bold" data-i18n="nav_support">Support</span>
+            </div>
+            <div onclick="navTo('me')" id="nav-me" class="text-gray-400 flex-1 flex flex-col items-center justify-center cursor-pointer transition h-full">
+                <i class="fas fa-user text-xl mb-1"></i><span class="text-[9px] font-bold" data-i18n="nav_me">Me</span>
+            </div>
+        </nav>
+
+        <!-- Toast -->
+        <div id="toast" class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black/80 text-white px-6 py-4 rounded-lg shadow-2xl opacity-0 pointer-events-none transition-all duration-300 z-50 text-center backdrop-blur">
+            <i class="fas fa-check-circle text-green-400 text-3xl mb-2"></i>
+            <p class="font-bold text-sm" id="toast-msg">Success!</p>
+        </div>
+
+    </div>
+
+    <!-- ================= LOGIC ================= -->
+    <script>
+        const I18N = {
+            en: {
+                search_ph: "Search products...", settings_title: "Settings", lbl_lang: "Language", lbl_curr: "Currency", btn_close: "Close",
+                cat_all_title: "All Categories", cat_machinery: "Machinery", cat_vehicles: "Vehicles", cat_electronics: "Electronics", cat_apparel: "Apparel", cat_beauty: "Beauty", cat_food: "Food & Agri", cat_construction: "Construction", cat_packaging: "Packaging", cat_tools: "Tools",
+                nav_market: "Market", nav_pools: "My Pools", nav_cart: "Cart", nav_support: "Support", nav_me: "Me",
+                del_standard: "Standard (1-3 Days)", del_group: "Group Deal (2 Weeks)", unit: "Unit", buy_now: "Buy Now", join_pool: "Join Pool",
+                pool_title: "My Active Pools", cart_title: "Shopping Cart", cart_total: "Total:", btn_checkout: "Checkout Now",
+                lbl_desc: "Description", lbl_capacity: "Capacity / Specs", lbl_reviews: "Reviews", btn_back: "Back",
+                chat_header: "Support Agent", chat_sub: "Online | Replies in 2m", chat_welcome: "Hello! How can I help?",
+                me_verified: "VERIFIED BUYER", me_orders: "My Orders", me_unpaid: "Unpaid", me_process: "Processing", me_ship: "Shipped", me_fav: "Favorites", me_addr: "Addresses", me_logout: "Log Out",
+                pool_status: "Sold: {c}/{t}", pool_rem: "{n} left!", fav_empty: "No favorite products yet.", addr_label: "Delivery Address", btn_save: "Save Address", msg_saved: "Address Saved!"
+            },
+            sw: {
+                search_ph: "Tafuta bidhaa...", settings_title: "Mipangilio", lbl_lang: "Lugha", lbl_curr: "Sarafu", btn_close: "Funga",
+                cat_all_title: "Aina Zote", cat_machinery: "Mashine", cat_vehicles: "Magari", cat_electronics: "Vifaa vya Umeme", cat_apparel: "Mavazi", cat_beauty: "Urembo", cat_food: "Chakula", cat_construction: "Ujenzi", cat_packaging: "Ufungaji", cat_tools: "Vifaa",
+                nav_market: "Soko", nav_pools: "Vikundi", nav_cart: "Toroli", nav_support: "Msaada", nav_me: "Mimi",
+                del_standard: "Kawaida (Siku 1-3)", del_group: "Pamoja (Wiki 2)", unit: "Kipimo", buy_now: "Nunua", join_pool: "Jiunge",
+                pool_title: "Vikundi Vangu", cart_title: "Toroli Yangu", cart_total: "Jumla:", btn_checkout: "Lipa Sasa",
+                lbl_desc: "Maelezo", lbl_capacity: "Uwezo / Vipimo", lbl_reviews: "Maoni", btn_back: "Rudi",
+                chat_header: "Mhudumu", chat_sub: "Yupo | Anajibu haraka", chat_welcome: "Jambo! Nikusaidie aje?",
+                me_verified: "MTEJA HALISI", me_orders: "Oda Zangu", me_unpaid: "Hajalipa", me_process: "Inashughulikiwa", me_ship: "Imetumwa", me_fav: "Vipendwa", me_addr: "Anwani", me_logout: "Toka",
+                pool_status: "Imeuzwa: {c}/{t}", pool_rem: "Baki: {n}!", fav_empty: "Huna bidhaa pendwa.", addr_label: "Anwani ya kuletewa", btn_save: "Hifadhi", msg_saved: "Anwani imehifadhiwa!"
+            },
+            rw: {
+                search_ph: "Shakisha...", settings_title: "Igenamiterere", lbl_lang: "Ururimi", lbl_curr: "Ifaranga", btn_close: "Funga",
+                cat_all_title: "Byose", cat_machinery: "Imashini", cat_vehicles: "Ibinyabiziga", cat_electronics: "Ikoranabuhanga", cat_apparel: "Imyenda", cat_beauty: "Ubwiza", cat_food: "Ibiribwa", cat_construction: "Ubwubatsi", cat_packaging: "Gupfunyika", cat_tools: "Ibikoresho",
+                nav_market: "Isoko", nav_pools: "Amatsinda", nav_cart: "Gare", nav_support: "Ubufasha", nav_me: "Njye",
+                del_standard: "Bisanzwe (Iminsi 1-3)", del_group: "Itsinda (Ibyumweru 2)", unit: "Igice", buy_now: "Gura", join_pool: "Jya mwisinda",
+                pool_title: "Amatsinda Yanjye", cart_title: "Gare Yanjye", cart_total: "Yose:", btn_checkout: "Kwishyura",
+                lbl_desc: "Ibisobanuro", lbl_capacity: "Ubushobozi", lbl_reviews: "Ibitekerezo", btn_back: "Subira inyuma",
+                chat_header: "Ushinzwe gufasha", chat_sub: "Arahabaye", chat_welcome: "Muraho! Nabafasha iki?",
+                me_verified: "UMUGUZI NYAWE", me_orders: "Komande", me_unpaid: "Ntarishyura", me_process: "Biri gukorwa", me_ship: "Byoherejwe", me_fav: "Ibyo nkunda", me_addr: "Aderesi", me_logout: "Gusohoka",
+                pool_status: "Byaguzwe: {c}/{t}", pool_rem: "Hasigaye: {n}!", fav_empty: "Nta bicuruzwa ukunda urabona.", addr_label: "Aho kubizana", btn_save: "Bika", msg_saved: "Aderesi yabitswe!"
+            }
+        };
+
+        const FULL_CATEGORIES = [
+            { key: "cat_machinery", icon: "fas fa-industry", id: "machinery" }, { key: "cat_vehicles", icon: "fas fa-truck", id: "vehicles" },
+            { key: "cat_electronics", icon: "fas fa-mobile-alt", id: "electronics" }, { key: "cat_apparel", icon: "fas fa-tshirt", id: "apparel" },
+            { key: "cat_beauty", icon: "fas fa-spa", id: "beauty" }, { key: "cat_food", icon: "fas fa-utensils", id: "food" },
+            { key: "cat_construction", icon: "fas fa-hard-hat", id: "construction" }, { key: "cat_packaging", icon: "fas fa-box-open", id: "packaging" },
+            { key: "cat_tools", icon: "fas fa-tools", id: "tools" }
+        ];
+
+        // EXPANDED DATABASE: 3 Items Per Category
+        const DB = [
+            // MACHINERY
+            { id: 1, cat: 'machinery', title: 'CNC Laser Cutting Machine Fiber 3000W', desc: 'Industrial metal cutter, high precision.', img: 'https://images.unsplash.com/photo-1565514020125-694953770258?auto=format&fit=crop&w=500&q=80', price: 12000, pool: 9500, moq: '1 Unit', supplier: 'LaserTech CN', capacity: "3000W Fiber Source, Cut Thickness 20mm", poolTarget: 20, poolSold: 14, reviews: [{u:"John D.", r:5, t:"Excellent machine."}] },
+            { id: 2, cat: 'machinery', title: 'Plastic Injection Molding Machine', desc: 'Automatic servo motor, 150 Ton force.', img: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=500&q=80', price: 18000, pool: 14500, moq: '1 Unit', supplier: 'Ningbo Plast', capacity: "Clamping Force: 1500KN, Shot Weight: 280g", poolTarget: 10, poolSold: 2, reviews: [{u:"Factory A.", r:4, t:"Good value."}] },
+            { id: 101, cat: 'machinery', title: 'Industrial Diesel Generator 50kVA', desc: 'Silent canopy, heavy duty power backup.', img: 'https://images.unsplash.com/photo-1495226990694-4e007c9184f7?auto=format&fit=crop&w=500&q=80', price: 4500, pool: 3800, moq: '1 Unit', supplier: 'PowerGen', capacity: "50kVA / 40kW, 3-Phase, 1500 RPM", poolTarget: 15, poolSold: 9, reviews: [] },
+            // VEHICLES
+            { id: 3, cat: 'vehicles', title: 'Electric Forklift 2.5 Ton Li-Ion', desc: 'Warehouse logistics lifter, zero emission.', img: 'https://images.unsplash.com/photo-1587613753310-0ba642887227?auto=format&fit=crop&w=500&q=80', price: 8500, pool: 6800, moq: '1 Unit', supplier: 'Heli Forklifts', capacity: "Lift Height: 3m, Battery: 80V/220Ah", poolTarget: 50, poolSold: 42, reviews: [{u:"Logistics Co.", r:5, t:"Powerful."}] },
+            { id: 4, cat: 'vehicles', title: 'Heavy Duty Dump Truck 6x4', desc: 'Mining tipper truck, 371HP diesel.', img: 'https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&w=500&q=80', price: 45000, pool: 39000, moq: '1 Unit', supplier: 'Sinotruk', capacity: "Load: 25 Tons, Engine: WD615.47", poolTarget: 15, poolSold: 8, reviews: [] },
+            { id: 102, cat: 'vehicles', title: 'Electric Cargo Tricycle', desc: 'Closed box delivery trike, ideal for last mile.', img: 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&w=500&q=80', price: 1200, pool: 850, moq: '5 Units', supplier: 'EcoMove', capacity: "Range: 60km, Load: 500kg", poolTarget: 100, poolSold: 20, reviews: [{u:"Delivery X", r:5, t:"Great for city."}] },
+            // ELECTRONICS
+            { id: 5, cat: 'electronics', title: 'Gaming Laptop RTX 4060 OEM', desc: '15.6 inch 144Hz, i7 12th Gen, 16GB RAM.', img: 'https://images.unsplash.com/photo-1603302576837-37561b2e2302?auto=format&fit=crop&w=500&q=80', price: 850, pool: 699, moq: '5 Pcs', supplier: 'Shenzhen Digi', capacity: "RAM: 16GB DDR5, SSD: 1TB NVMe", poolTarget: 200, poolSold: 145, reviews: [{u:"GamerPro", r:5, t:"Smooth."}] },
+            { id: 6, cat: 'electronics', title: 'Smart Watch Series 8 Ultra', desc: 'Waterproof, heart rate, bluetooth call.', img: 'https://images.unsplash.com/photo-1579586337278-3befd40fd17a?auto=format&fit=crop&w=500&q=80', price: 15, pool: 9.5, moq: '100 Pcs', supplier: 'WearFit', capacity: "Battery: 300mAh, Screen: 1.99 Inch IPS", poolTarget: 5000, poolSold: 2100, reviews: [{u:"Reseller X", r:4, t:"Hot seller."}] },
+            { id: 103, cat: 'electronics', title: 'Portable Bluetooth Speaker', desc: 'Waterproof outdoor speaker with heavy bass.', img: 'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?auto=format&fit=crop&w=500&q=80', price: 25, pool: 18, moq: '50 Pcs', supplier: 'AudioMax', capacity: "10W Output, 12hr Battery", poolTarget: 500, poolSold: 120, reviews: [] },
+            // APPAREL
+            { id: 7, cat: 'apparel', title: 'Men Slim Fit Business Suits', desc: 'Wool blend, 3 piece set (Jacket, Vest, Pant).', img: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&w=500&q=80', price: 45, pool: 28, moq: '20 Sets', supplier: 'FashionMens', capacity: "Sizes: S-XXL, Fabric: 70% Wool", poolTarget: 300, poolSold: 55, reviews: [] },
+            { id: 104, cat: 'apparel', title: 'Safety Reflective Vest', desc: 'High visibility neon vest for construction.', img: 'https://images.unsplash.com/photo-1617347454431-f49d7ff5c3b1?auto=format&fit=crop&w=500&q=80', price: 3, pool: 1.5, moq: '100 Pcs', supplier: 'SafeWork', capacity: "ANSI Class 2, Polyester", poolTarget: 2000, poolSold: 800, reviews: [] },
+            { id: 105, cat: 'apparel', title: 'Kids School Uniform Set', desc: 'Durable cotton blend shirt and trousers/skirt.', img: 'https://images.unsplash.com/photo-1620799140408-ed53417151c9?auto=format&fit=crop&w=500&q=80', price: 12, pool: 8.5, moq: '50 Sets', supplier: 'EduWear', capacity: "Sizes: 4-14 Years, Fade Resistant", poolTarget: 1000, poolSold: 450, reviews: [] },
+            // BEAUTY
+            { id: 106, cat: 'beauty', title: 'Organic Argan Oil 100ml', desc: 'Cold pressed pure oil for hair and skin.', img: 'https://images.unsplash.com/photo-1571781565036-d3f7595ca3bb?auto=format&fit=crop&w=500&q=80', price: 8, pool: 5.2, moq: '100 Bottles', supplier: 'BioNature', capacity: "100% Pure, Glass Bottle", poolTarget: 2000, poolSold: 300, reviews: [] },
+            { id: 107, cat: 'beauty', title: 'Moisturizing Face Cream', desc: 'Vitamin E enriched daily moisturizer.', img: 'https://images.unsplash.com/photo-1611930022073-b7a4ba5fcccd?auto=format&fit=crop&w=500&q=80', price: 6, pool: 3.5, moq: '200 Pcs', supplier: 'GlowSkin', capacity: "50g Jar, SPF 15", poolTarget: 5000, poolSold: 1200, reviews: [] },
+            { id: 108, cat: 'beauty', title: 'Synthetic Hair Wig Long', desc: 'Heat resistant fiber, natural look.', img: 'https://images.unsplash.com/photo-1595476108010-b4d1f102b1b1?auto=format&fit=crop&w=500&q=80', price: 20, pool: 14, moq: '20 Pcs', supplier: 'HairBeauty', capacity: "Length: 24 inch, Black/Brown", poolTarget: 500, poolSold: 80, reviews: [] },
+            // FOOD
+            { id: 9, cat: 'food', title: 'Green Coffee Beans Arabica', desc: 'Grade AA washed, export sack 60kg.', img: 'https://images.unsplash.com/photo-1524350876685-2740593328f3?auto=format&fit=crop&w=500&q=80', price: 5, pool: 3.5, moq: '500 kg', supplier: 'RwandaBeans', capacity: "Moisture: 11-12%, Grade: AA", poolTarget: 10000, poolSold: 8400, reviews: [{u:"Roaster Inc", r:5, t:"Perfect."}] },
+            { id: 109, cat: 'food', title: 'Dried Mango Slices (No Sugar)', desc: 'Natural dried fruit, export quality.', img: 'https://images.unsplash.com/photo-1601493700631-2b16ec4b4716?auto=format&fit=crop&w=500&q=80', price: 12, pool: 9, moq: '50 kg', supplier: 'TropicalDry', capacity: "1kg Packs, 1 year shelf life", poolTarget: 2000, poolSold: 600, reviews: [] },
+            { id: 110, cat: 'food', title: 'Pure Raw Honey', desc: 'Unfiltered forest honey in bulk buckets.', img: 'https://images.unsplash.com/photo-1587049352851-8d4e8913d179?auto=format&fit=crop&w=500&q=80', price: 7, pool: 5.5, moq: '100 Liters', supplier: 'BeeGold', capacity: "20L Bucket, Wildflower", poolTarget: 5000, poolSold: 200, reviews: [] },
+            // CONSTRUCTION
+            { id: 111, cat: 'construction', title: 'Portable Concrete Mixer', desc: 'Diesel engine 350L cement mixer.', img: 'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=500&q=80', price: 800, pool: 650, moq: '2 Units', supplier: 'BuildEquip', capacity: "Drum: 350L, Engine: 6HP", poolTarget: 20, poolSold: 5, reviews: [] },
+            { id: 112, cat: 'construction', title: 'Polycrystalline Solar Panel 300W', desc: 'High efficiency PV module for home.', img: 'https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=500&q=80', price: 120, pool: 85, moq: '20 Pcs', supplier: 'SunPower', capacity: "300W, 18V, 10 Year Warranty", poolTarget: 500, poolSold: 150, reviews: [] },
+            { id: 113, cat: 'construction', title: 'Steel Rebar 12mm', desc: 'Deformed steel bars for reinforcement.', img: 'https://images.unsplash.com/photo-1535063406530-880315b5f8e5?auto=format&fit=crop&w=500&q=80', price: 0.8, pool: 0.65, moq: '5 Tons', supplier: 'SteelWorks', capacity: "Grade 60, Length 12m", poolTarget: 200, poolSold: 40, reviews: [] },
+            // PACKAGING
+            { id: 114, cat: 'packaging', title: 'Cardboard Shipping Boxes', desc: 'Corrugated boxes for e-commerce.', img: 'https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?auto=format&fit=crop&w=500&q=80', price: 0.5, pool: 0.25, moq: '500 Pcs', supplier: 'PackRight', capacity: "Size: 30x20x10cm, 3-ply", poolTarget: 10000, poolSold: 3500, reviews: [] },
+            { id: 115, cat: 'packaging', title: 'Glass Jars with Lids 500ml', desc: 'Clear jars for food storage/jam.', img: 'https://images.unsplash.com/photo-1605303069321-1d37d2b91543?auto=format&fit=crop&w=500&q=80', price: 0.8, pool: 0.5, moq: '1000 Pcs', supplier: 'GlassWare', capacity: "500ml, Metal Twist Lid", poolTarget: 5000, poolSold: 200, reviews: [] },
+            { id: 116, cat: 'packaging', title: 'Biodegradable Mailer Bags', desc: 'Eco-friendly courier bags.', img: 'https://images.unsplash.com/photo-1623347883052-03e019872135?auto=format&fit=crop&w=500&q=80', price: 0.2, pool: 0.12, moq: '1000 Pcs', supplier: 'GreenPack', capacity: "A4 Size, Compostable", poolTarget: 20000, poolSold: 12000, reviews: [] },
+            // TOOLS
+            { id: 117, cat: 'tools', title: 'Inverter Welding Machine 200A', desc: 'Portable MMA welder IGBT.', img: 'https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?auto=format&fit=crop&w=500&q=80', price: 150, pool: 110, moq: '5 Pcs', supplier: 'WeldPro', capacity: "20-200A, 60% Duty Cycle", poolTarget: 50, poolSold: 18, reviews: [] },
+            { id: 118, cat: 'tools', title: 'Ratchet Wrench Set 12pcs', desc: 'Chrome vanadium steel mechanic tools.', img: 'https://images.unsplash.com/photo-1530124566582-a618bc2615dc?auto=format&fit=crop&w=500&q=80', price: 35, pool: 22, moq: '20 Sets', supplier: 'HandyTools', capacity: "8mm-24mm, Case Included", poolTarget: 300, poolSold: 95, reviews: [] },
+            { id: 119, cat: 'tools', title: 'Cordless Angle Grinder 18V', desc: 'Brushless grinder with 2 batteries.', img: 'https://images.unsplash.com/photo-1572981779307-38b8cabb2407?auto=format&fit=crop&w=500&q=80', price: 90, pool: 65, moq: '10 Pcs', supplier: 'PowerG', capacity: "10000RPM, 125mm Disc", poolTarget: 100, poolSold: 30, reviews: [] }
+        ];
+
+        let state = { lang: 'en', curr: 'USD', cat: 'all', cart: [], myPools: [], qtys: {} };
+        const RATE = 1350;
+        const t = (key) => I18N[state.lang][key] || key;
+        const fmtPrice = (usd) => state.curr === 'USD' ? `$${usd.toLocaleString()}` : `RWF ${(usd * RATE).toLocaleString()}`;
+
+        // --- HELPERS ---
+        function renderQuickCatBar() {
+            const container = document.getElementById('quick-cat-bar');
+            let html = `<div onclick="toggleAllCats()" class="flex flex-col items-center min-w-[60px] cursor-pointer group"><div class="w-10 h-10 rounded-full bg-kivu-teal text-white flex items-center justify-center mb-1 text-lg border border-kivu-teal shadow-sm"><i class="fas fa-th"></i></div><span class="text-[10px] font-bold leading-tight text-center w-14 text-kivu-teal" data-i18n="cat_all_title">${t('cat_all_title')}</span></div>`;
+            FULL_CATEGORIES.slice(0, 5).forEach(c => { html += `<div onclick="filterCat('${c.id}')" class="flex flex-col items-center min-w-[60px] cursor-pointer opacity-60 hover:opacity-100"><div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mb-1 text-gray-600 text-lg border border-gray-200"><i class="${c.icon}"></i></div><span class="text-[10px] font-bold leading-tight text-center w-14 text-gray-600 line-clamp-2">${t(c.key)}</span></div>`; });
+            container.innerHTML = html;
+        }
+        function renderFullCatGrid() {
+            document.getElementById('full-cat-grid').innerHTML = FULL_CATEGORIES.map(c => `<div onclick="filterCat('${c.id}'); toggleAllCats()" class="bg-white p-3 rounded-lg border border-gray-100 shadow-sm flex items-center gap-3 active:bg-gray-50 cursor-pointer"><div class="w-8 h-8 rounded-full bg-gray-100 text-kivu-teal flex items-center justify-center shrink-0"><i class="${c.icon}"></i></div><span class="text-xs font-bold text-gray-700 leading-tight">${t(c.key)}</span></div>`).join('');
+        }
+
+        // --- MAIN PRODUCT FEED ---
+        function renderProducts(query = "") {
+            const container = document.getElementById('product-feed');
+            const filtered = DB.filter(p => (state.cat === 'all' || p.cat === state.cat) && p.title.toLowerCase().includes(query.toLowerCase()));
+            if (!filtered.length) return container.innerHTML = `<div class="text-center py-12 text-gray-400">No products found.</div>`;
+
+            container.innerHTML = filtered.map(p => {
+                const qty = state.qtys[p.id] || 1;
+                const pct = Math.min(100, Math.round((p.poolSold / p.poolTarget) * 100));
+                const remaining = p.poolTarget - p.poolSold;
+                const statusText = t('pool_status').replace('{c}', p.poolSold).replace('{t}', p.poolTarget);
+                const remText = t('pool_rem').replace('{n}', remaining);
+
+                return `
+                <div class="bg-white rounded-lg p-3 shadow-sm border border-gray-100 mb-1 fade-in">
+                    <div class="flex gap-3">
+                        <div class="w-24 h-24 shrink-0 relative rounded bg-gray-100 overflow-hidden cursor-pointer" onclick="openProductDetail(${p.id})">
+                            <img src="${p.img}" class="w-full h-full object-cover" onerror="this.src='https://placehold.co/200x200?text=Image'">
+                        </div>
+                        <div class="flex-1 flex flex-col justify-between min-w-0">
+                            <div onclick="openProductDetail(${p.id})">
+                                <h3 class="font-bold text-sm text-gray-800 line-clamp-2 leading-tight">${p.title}</h3>
+                                <button class="text-[10px] text-blue-500 font-bold mt-1 bg-blue-50 px-1 rounded">Info <i class="fas fa-info-circle"></i></button>
+                            </div>
+                            <div class="mt-2">
+                                <div class="flex justify-between items-start mb-2">
+                                    <div class="flex-1"><div class="text-xs text-gray-600 font-bold">${fmtPrice(p.price)}</div><div class="text-[9px] text-gray-400 leading-tight">${t('del_standard')}</div></div>
+                                    <div class="flex-1 text-right"><div class="text-base text-kivu-orange font-bold">${fmtPrice(p.pool)}</div><div class="text-[9px] text-kivu-orange font-medium leading-tight">${t('del_group')}</div></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-2 mb-2 bg-gray-50 p-2 rounded border border-dashed border-gray-200">
+                        <div class="flex justify-between text-[10px] mb-1 font-bold"><span class="text-gray-600">${statusText}</span><span class="text-red-500">${remText}</span></div>
+                        <div class="w-full bg-gray-200 h-2 rounded-full overflow-hidden"><div class="bg-gradient-to-r from-kivu-teal to-green-400 h-2 progress-bar" style="width: ${pct}%"></div></div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="flex items-center border rounded h-8 bg-gray-50">
+                            <button onclick="modQty(${p.id}, -1)" class="px-3 text-gray-500 font-bold">-</button>
+                            <span class="px-1 text-sm font-bold w-8 text-center">${qty}</span>
+                            <button onclick="modQty(${p.id}, 1)" class="px-3 text-gray-500 font-bold">+</button>
+                        </div>
+                        <button onclick="buyNow(${p.id})" class="flex-1 bg-gray-200 text-gray-700 text-xs font-bold py-2 rounded hover:bg-gray-300 transition">${t('buy_now')}</button>
+                        <button onclick="joinPool(${p.id})" class="flex-1 bg-kivu-teal text-white text-xs font-bold py-2 rounded shadow hover:bg-emerald-700 transition">${t('join_pool')}</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function openProductDetail(id) {
+            const p = DB.find(x => x.id === id);
+            if(!p) return;
+            const pct = Math.round((p.poolSold / p.poolTarget) * 100);
+            const reviewsHtml = p.reviews.length ? p.reviews.map(r => `<div class="bg-gray-50 p-2 rounded mb-2"><div class="flex justify-between text-xs font-bold"><span>${r.u}</span><span class="text-yellow-500">★ ${r.r}.0</span></div><p class="text-xs text-gray-600 mt-1">"${r.t}"</p></div>`).join('') : '<p class="text-xs text-gray-400">No reviews.</p>';
+
+            document.getElementById('product-detail-modal').innerHTML = `
+                <div class="relative">
+                    <button onclick="document.getElementById('product-detail-modal').classList.add('hidden')" class="absolute top-4 left-4 bg-black/50 text-white w-8 h-8 rounded-full z-10 flex items-center justify-center"><i class="fas fa-arrow-left"></i></button>
+                    <img src="${p.img}" class="w-full h-64 object-cover bg-gray-200">
+                    <div class="p-4">
+                        <h1 class="text-xl font-bold leading-tight mb-2">${p.title}</h1>
+                        <div class="grid grid-cols-2 gap-4 mb-6">
+                            <div class="bg-gray-100 p-3 rounded-lg"><div class="text-xs text-gray-500">${t('del_standard')}</div><div class="text-lg font-bold text-gray-800">${fmtPrice(p.price)}</div></div>
+                            <div class="bg-orange-50 border border-orange-200 p-3 rounded-lg"><div class="text-xs text-orange-600 font-bold">${t('del_group')}</div><div class="text-lg font-bold text-kivu-orange">${fmtPrice(p.pool)}</div></div>
+                        </div>
+                        <div class="mb-4 bg-gray-50 p-3 rounded">
+                            <div class="flex justify-between text-xs font-bold mb-1"><span>${t('pool_status').replace('{c}',p.poolSold).replace('{t}',p.poolTarget)}</span><span class="text-kivu-teal">${pct}%</span></div>
+                            <div class="w-full bg-gray-200 h-2 rounded-full"><div class="bg-kivu-teal h-2 rounded-full" style="width:${pct}%"></div></div>
+                        </div>
+                        <div class="mb-4"><h3 class="font-bold text-sm border-b pb-1 mb-2">${t('lbl_desc')}</h3><p class="text-sm text-gray-600">${p.desc}</p></div>
+                        <div class="mb-4"><h3 class="font-bold text-sm border-b pb-1 mb-2">${t('lbl_capacity')}</h3><p class="text-sm text-gray-600">${p.capacity}</p></div>
+                        <div class="mb-24"><h3 class="font-bold text-sm border-b pb-1 mb-2">${t('lbl_reviews')}</h3>${reviewsHtml}</div>
+                    </div>
+                    <div class="fixed bottom-0 w-full max-w-md bg-white border-t p-3 flex gap-2"><button onclick="buyNow(${p.id});document.getElementById('product-detail-modal').classList.add('hidden')" class="flex-1 bg-gray-200 font-bold py-3 rounded text-sm">${t('buy_now')}</button><button onclick="joinPool(${p.id});document.getElementById('product-detail-modal').classList.add('hidden')" class="flex-1 bg-kivu-teal text-white font-bold py-3 rounded text-sm">${t('join_pool')}</button></div>
+                </div>`;
+            document.getElementById('product-detail-modal').classList.remove('hidden');
+        }
+
+        // --- SUB PAGES LOGIC ---
+        function openSubPage(id) {
+            document.getElementById('page-me').classList.add('hidden');
+            document.getElementById(id).classList.remove('hidden');
+        }
+
+        function closeSubPage(id) {
+            document.getElementById(id).classList.add('hidden');
+            document.getElementById('page-me').classList.remove('hidden');
+        }
+
+        function saveAddress() {
+            const val = document.getElementById('addr-text').value;
+            if(val) {
+                showToast(t('msg_saved'));
+                closeSubPage('subpage-address');
+            }
+        }
+
+        // --- ACTIONS ---
+        function modQty(id, delta) {
+            if(!state.qtys[id]) state.qtys[id] = 1;
+            state.qtys[id] += delta;
+            if(state.qtys[id] < 1) state.qtys[id] = 1;
+            renderProducts();
+        }
+
+        function buyNow(id) {
+            const p = DB.find(x => x.id === id);
+            state.cart.push({ product: p, qty: state.qtys[id]||1, price: p.price, type: 'standard' });
+            showToast('Added to Cart');
+            renderCart();
+        }
+
+        function joinPool(id) {
+            const p = DB.find(x => x.id === id);
+            const q = state.qtys[id]||1;
+            state.myPools.push({ product: p, qty: q });
+            p.poolSold += q; 
+            showToast('Joined Pool!');
+            renderMyPools();
+            renderProducts();
+        }
+
+        function renderMyPools() {
+            const container = document.getElementById('pool-list');
+            document.getElementById('pool-badge').innerText = state.myPools.length || '';
+            document.getElementById('pool-badge').classList.toggle('hidden', state.myPools.length === 0);
+            container.innerHTML = state.myPools.length ? state.myPools.map((item, idx) => {
+                 const pct = Math.min(100, Math.round((item.product.poolSold / item.product.poolTarget) * 100));
+                 return `
+                <div class="bg-white p-3 rounded-lg shadow-sm border-l-4 border-kivu-teal mb-2">
+                    <div class="flex justify-between items-start mb-2"><h4 class="font-bold text-sm line-clamp-1">${item.product.title}</h4><span class="bg-green-100 text-green-700 text-[9px] font-bold px-1.5 py-0.5 rounded">Active</span></div>
+                    <div class="flex gap-3 text-xs"><img src="${item.product.img}" class="w-12 h-12 rounded object-cover"><div class="flex-1"><div>Qty: <b>${item.qty}</b> &bull; ${t('del_group')}</div><div class="text-kivu-orange font-bold">${fmtPrice(item.product.pool)}</div><div class="w-full bg-gray-200 h-1.5 rounded-full mt-2"><div class="bg-kivu-orange h-1.5 rounded-full" style="width:${pct}%"></div></div></div></div>
+                    <div class="flex justify-end gap-2 border-t mt-2 pt-2"><button onclick="state.myPools.splice(${idx},1); renderMyPools()" class="text-red-500 text-xs font-bold">Leave</button><button onclick="state.cart.push({product:item.product, qty:item.qty, price:item.product.pool, type:'pool'}); state.myPools.splice(${idx},1); renderMyPools(); renderCart(); navTo('cart')" class="bg-kivu-dark text-white text-xs font-bold px-3 py-1 rounded">Pay Now</button></div>
+                </div>`;
+            }).join('') : `<div class="text-center py-10 text-gray-400"><i class="fas fa-users-slash text-3xl mb-2"></i><p>No active pools</p></div>`;
+        }
+
+        function renderCart() {
+            const container = document.getElementById('cart-items');
+            const badge = document.getElementById('cart-count');
+            badge.innerText = state.cart.length || '';
+            badge.classList.toggle('hidden', state.cart.length === 0);
+            let total = 0;
+            container.innerHTML = state.cart.length ? state.cart.map((item, idx) => {
+                total += item.price * item.qty;
+                return `
+                <div class="bg-white p-2 rounded shadow-sm mb-2 border border-gray-100 flex gap-3 relative">
+                    <button onclick="state.cart.splice(${idx},1); renderCart()" class="absolute top-1 right-2 text-white bg-kivu-danger w-6 h-6 rounded-full flex items-center justify-center shadow-sm hover:bg-red-700 transition"><i class="fas fa-trash-alt text-[10px]"></i></button>
+                    <img src="${item.product.img}" class="w-16 h-16 rounded bg-gray-100 object-cover">
+                    <div class="flex-1"><h4 class="text-xs font-bold line-clamp-1 pr-6">${item.product.title}</h4><div class="text-[10px] text-gray-500 mb-1">${item.type === 'pool' ? t('del_group') : t('del_standard')}</div><div class="flex justify-between items-end"><div class="text-xs font-bold text-kivu-orange">${fmtPrice(item.price)} x ${item.qty}</div><div class="font-bold text-sm">${fmtPrice(item.price * item.qty)}</div></div></div>
+                </div>`;
+            }).join('') : `<div class="text-center py-10 text-gray-400"><i class="fas fa-shopping-cart text-3xl mb-2"></i><p>Cart Empty</p></div>`;
+            document.getElementById('cart-total-price').innerText = fmtPrice(total);
+        }
+
+        // --- GLOBAL & INIT ---
+        function toggleAllCats() { document.getElementById('all-cats-modal').classList.toggle('hidden'); }
+        function toggleSettings() { document.getElementById('settings-modal').classList.toggle('hidden'); }
+        function filterCat(id) { state.cat = id; document.getElementById('filter-indicator').classList.toggle('hidden', id==='all'); if(id!=='all') document.getElementById('filter-name').innerText = 'Filtering'; renderProducts(); }
+        function resetFilter() { filterCat('all'); }
+        function navTo(page) { ['home','pools','cart','support','me'].forEach(p => { document.getElementById(`page-${p}`).classList.add('hidden'); document.getElementById(`nav-${p}`).classList.replace('text-kivu-teal', 'text-gray-400'); if(p==='cart') document.querySelector(`#nav-cart .bg-kivu-orange`).classList.replace('bg-kivu-teal', 'bg-kivu-orange'); }); document.getElementById(`page-${page}`).classList.remove('hidden'); if(page !== 'cart') document.getElementById(`nav-${page}`).classList.replace('text-gray-400', 'text-kivu-teal'); }
+        function updateUI() { document.querySelectorAll('[data-i18n]').forEach(el => el.innerText = t(el.getAttribute('data-i18n'))); document.querySelector('[data-i18n-placeholder]').placeholder = t('search_ph'); renderQuickCatBar(); renderFullCatGrid(); renderProducts(); renderMyPools(); renderCart(); }
+        function setLang(l) { state.lang = l; toggleSettings(); updateUI(); }
+        function setCurr(c) { state.curr = c; toggleSettings(); updateUI(); }
+        function showToast(msg) { const t = document.getElementById('toast'); document.getElementById('toast-msg').innerText = msg; t.classList.remove('opacity-0', 'pointer-events-none'); setTimeout(() => t.classList.add('opacity-0', 'pointer-events-none'), 2000); }
+        function sendChat() { const i = document.getElementById('chat-input'); if(i.value) { document.getElementById('chat-messages').innerHTML += `<div class="chat-bubble chat-me shadow-sm text-white bg-kivu-teal">${i.value}</div>`; i.value=''; setTimeout(()=>document.getElementById('chat-messages').innerHTML += `<div class="chat-bubble chat-agent shadow-sm fade-in">Okay, let me check that for you.</div>`, 1000); }}
+        
+        updateUI();
+    </script>
+</body>
+</html>
